@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Life: Dynasty</title>
+    <style>
+        :root { --pink: #ff80ab; --dark-pink: #c94b7b; --forest: #2e7d32; --gold: #ffb300; }
+        
+        body { 
+            margin: 0; padding: 0; 
+            background: #222 url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200') no-repeat center center fixed;
+            background-size: cover; 
+            font-family: 'Segoe UI', sans-serif; 
+            display: flex; justify-content: center; align-items: center; 
+            height: 100vh; width: 100vw; overflow: hidden;
+        }
+        
+        #weather-tint { position: absolute; inset: 0; pointer-events: none; transition: background 2s ease; z-index: 5; }
+        .bg-spring { background: rgba(139, 195, 74, 0.1); }
+        .bg-summer { background: rgba(255, 235, 59, 0.1); }
+        .bg-autumn { background: rgba(230, 81, 0, 0.2); }
+        .bg-winter { background: rgba(255, 255, 255, 0.5); }
+
+        #game-box {
+            width: 95%; max-width: 380px; height: 90vh; max-height: 680px; 
+            background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(15px);
+            border: 4px solid white; border-radius: 30px; position: relative; 
+            overflow: hidden; box-shadow: 0 15px 40px rgba(0,0,0,0.6); z-index: 10;
+        }
+
+        /* --- SCREENS --- */
+        .overlay { 
+            position: absolute; inset: 0; background: #f1f8e9; 
+            z-index: 2000; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; text-align: center; padding: 20px; 
+        }
+        .hidden { display: none !important; pointer-events: none; }
+        
+        .play-btn { 
+            background: var(--forest); color: white; border: none; padding: 12px 25px; 
+            border-radius: 50px; font-size: 16px; cursor: pointer; 
+            box-shadow: 0 5px 0 #1b5e20; margin: 8px; font-weight: bold; pointer-events: auto;
+        }
+        .play-btn:active { transform: translateY(4px); box-shadow: 0 1px 0 #1b5e20; }
+        .btn-gold { background: var(--gold); box-shadow: 0 5px 0 #ff8f00; color: #333; }
+        .btn-gold:active { box-shadow: 0 1px 0 #ff8f00; }
+        
+        /* --- UI --- */
+        .status { padding: 15px; text-align: center; z-index: 100; position: relative; }
+        .hp-bar { width: 100%; height: 20px; background: #333; border: 2px solid #000; border-radius: 10px; overflow: hidden; margin-bottom: 5px; }
+        #hp-fill { width: 100%; height: 100%; background: #4caf50; transition: 0.3s; }
+        .meta-tag { font-size: 14px; background: white; padding: 5px 15px; border-radius: 15px; font-weight: bold; margin-bottom: 10px; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 2px solid var(--forest);}
+        
+        /* --- ORGANIC GROWTH --- */
+        #tree-world { 
+            position: absolute; bottom: 20%; width: 100%; display: flex; justify-content: center; align-items: flex-end; z-index: 50; 
+            --t-wood: #8d6e63; --t-l: #f48fb1; --t-r: #f06292;
+        }
+        .trunk { background: var(--t-wood); border-radius: 6px; position: relative; transition: all 1.5s ease; width: 12px; height: 60px; }
+        .leaf { position: absolute; transition: all 1.5s ease; opacity: 1; z-index: 51; width: 40px; height: 25px; }
+        
+        .top-l { background: var(--t-l); border-radius: 50% 50% 0 50%; top: -15px; left: -25px; transform: rotate(-15deg); }
+        .top-r { background: var(--t-r); border-radius: 50% 50% 50% 0; top: -5px; right: -25px; transform: rotate(15deg); }
+        .top-m { background: var(--t-l); border-radius: 50%; top: -25px; left: -10px; width: 45px; height: 35px; opacity: 0; } 
+
+        .branch { position: absolute; background: var(--t-wood); width: 8px; height: 0px; border-radius: 4px; transition: all 1.5s ease; transform-origin: bottom center; opacity: 0; }
+        .b1 { bottom: 20px; left: -2px; transform: rotate(-55deg); }
+        .b2 { bottom: 45px; right: -2px; transform: rotate(55deg); }
+        .b3 { bottom: 90px; left: -2px; transform: rotate(-45deg); }
+        .b4 { bottom: 130px; right: -2px; transform: rotate(45deg); }
+        .b5 { bottom: 170px; left: -2px; transform: rotate(-35deg); }
+        .b6 { bottom: 210px; right: -2px; transform: rotate(35deg); }
+        .branch .top-l, .branch .top-r { top: -10px; width: 30px; height: 20px;}
+
+        .stage-1 .trunk { height: 130px; width: 14px;} .stage-1 .b1, .stage-1 .b2 { height: 45px; opacity: 1; }
+        .stage-2 .trunk { height: 190px; width: 16px;} .stage-2 .b3, .stage-2 .b4 { height: 50px; opacity: 1; }
+        .stage-3 .trunk { height: 260px; width: 22px;} .stage-3 .b5, .stage-3 .b6 { height: 60px; opacity: 1; } 
+        .stage-3 .top-m { opacity: 1; } 
+
+        .season-Autumn .leaf { background: #e65100 !important; }
+        .season-Winter .leaf { opacity: 0 !important; }
+
+        /* --- BUTTONS & ALERTS --- */
+        #blossom-btn { position: absolute; top: 120px; right: 20px; width: 60px; height: 60px; background: #f06292; border-radius: 50%; border: 4px solid white; font-size: 30px; display: none; cursor: pointer; z-index: 1000; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        #event-alert { position: absolute; top: 35%; width: 100%; text-align: center; z-index: 500; display: none; pointer-events: none;}
+        .controls { position: absolute; bottom: 4%; width: 100%; display: flex; justify-content: center; gap: 8px; z-index: 1000; }
+        .icon-btn { width: 55px; height: 55px; border-radius: 15px; border: 2px solid white; background: white; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; pointer-events: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.2);}
+        
+        #comms-box { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #e8f5e9; padding: 20px; border-radius: 20px; border: 4px solid var(--forest); z-index: 3000; text-align: center; width: 70%; }
+        
+        /* --- BOOK / ENCYCLOPEDIA --- */
+        .book-grid { display: grid; grid-template-columns: 1fr; gap: 10px; width: 90%; max-height: 55vh; overflow-y: auto; margin-bottom: 15px; padding-right: 5px;}
+        .tree-entry { background: white; border-radius: 12px; padding: 15px; text-align: left; border: 2px solid #ddd; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        .tree-entry.unlocked { border-color: var(--forest); cursor: pointer; transition: 0.2s; }
+        .tree-entry.unlocked:hover { transform: scale(1.03); }
+        .tree-info h3 { margin: 0 0 5px 0; color: #333; }
+        .tree-info p { margin: 0; font-size: 12px; color: #777; }
+    </style>
+</head>
+<body>
+
+<div id="weather-tint" class="bg-spring"></div>
+
+<div id="game-box">
+    
+    <div id="start-screen" class="overlay">
+        <h1 style="color: var(--forest); font-size: 44px; margin: 0;">Tree Life</h1>
+        <p style="color: #555; margin-bottom: 20px;">Dynasty Edition</p>
+        <div class="meta-tag" id="main-level">Player Level: 0</div>
+        <button class="play-btn" onclick="showChoice('start')">START NEW FOREST</button>
+        <button class="play-btn btn-gold" onclick="openBook()">📖 BOTANICALS BOOK</button>
+    </div>
+
+    <div id="book-screen" class="overlay hidden">
+        <h2 style="color: var(--forest); margin-top: 0;">Species Archive</h2>
+        <div class="meta-tag" id="book-level">Player Level: 0</div>
+        <div class="book-grid" id="book-list"></div>
+        <button class="play-btn" onclick="closeBook()">BACK TO MENU</button>
+    </div>
+
+    <div id="choice-screen" class="overlay hidden">
+        <h2 id="choice-title">Select Seed</h2>
+        <p id="choice-desc" style="font-size: 14px; color: #555; margin-top:-10px;">Cost: 0 Seeds</p>
+        <div id="choice-list" style="width:100%; display:flex; flex-direction:column; align-items:center; max-height: 50vh; overflow-y: auto;"></div>
+        <button class="play-btn btn-gold" id="cancel-choice-btn" style="margin-top: 15px;" onclick="cancelChoice()">CANCEL</button>
+    </div>
+
+    <div id="end-screen" class="overlay hidden">
+        <h1 style="color: #d32f2f;">Dynasty Ended</h1>
+        <p id="end-stats" style="font-size: 16px; font-weight: bold; color:#333;"></p>
+        <button class="play-btn" onclick="location.reload()">MAIN MENU</button>
+    </div>
+
+    <div class="status">
+        <div class="hp-bar"><div id="hp-fill"></div></div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px;">
+            <span>HP: <span id="hp-text">100</span>%</span>
+            <span style="color: var(--gold);">SEEDS: <span id="run-seeds">0</span></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; margin-top: 5px;">
+            <span id="info-tag" style="color: var(--forest);">Year 1 - Spring</span>
+            <span style="color: #555;">GEN: <span id="gen-text">1</span></span>
+        </div>
+    </div>
+
+    <div id="tree-world" class="season-Spring stage-0">
+        <div class="trunk">
+            <div class="leaf top-m"></div>
+            <div class="leaf top-l"></div><div class="leaf top-r"></div>
+            <div class="branch b1"><div class="leaf top-l"></div></div>
+            <div class="branch b2"><div class="leaf top-r"></div></div>
+            <div class="branch b3"><div class="leaf top-l"></div></div>
+            <div class="branch b4"><div class="leaf top-r"></div></div>
+            <div class="branch b5"><div class="leaf top-l"></div></div>
+            <div class="branch b6"><div class="leaf top-r"></div></div>
+        </div>
+    </div>
+
+    <button id="blossom-btn" onclick="collectSeed()">🌻</button>
+
+    <div id="event-alert">
+        <span id="event-img" style="font-size: 60px;"></span>
+        <h3 id="event-name" style="color: #d32f2f; margin: 0; background: rgba(255,255,255,0.9); display:inline-block; padding: 5px 15px; border-radius: 10px;"></h3>
+    </div>
+
+    <div id="comms-box">
+        <h3 style="margin-top:0; color:var(--forest);">Forest Comms</h3>
+        <button class="play-btn" style="width: 100%; margin: 5px 0; font-size: 14px;" onclick="fix('Flood')">🌊 Absorb Water</button>
+        <button class="play-btn" style="width: 100%; margin: 5px 0; font-size: 14px; background: #ff9800; box-shadow: 0 5px 0 #e65100;" onclick="fix('Pests')">🐛 Call Ladybugs</button>
+        <p onclick="toggleComms(false)" style="cursor:pointer; text-decoration: underline; font-size: 14px; margin-bottom:0; font-weight:bold;">Close</p>
+    </div>
+
+    <div class="controls">
+        <button class="icon-btn" id="shield-btn" onclick="useShield()">🛡️</button>
+        <button class="icon-btn" onclick="dropBranches()">🍂</button>
+        <button class="icon-btn" onclick="toggleComms(true)">💬</button>
+    </div>
+</div>
+
+<script>
+    // META PROGRESSION 
+    let meta = { level: 0, bestGen: 0 };
+    try {
+        const saved = localStorage.getItem('treeLifeDynasty');
+        if(saved) meta = JSON.parse(saved);
+    } catch(e) {}
+
+    function saveMeta() {
+        try { localStorage.setItem('treeLifeDynasty', JSON.stringify(meta)); } catch(e) {}
+    }
+
+    const treeDB = {
+        'blackwood': { name: '🖤 Blackwood', desc: 'High HP. Slow Growth.', wood: '#3e2723', l: '#1b5e20', r: '#2e7d32', reqLevel: 0 },
+        'cherry': { name: '🌸 Cherry Blossom', desc: 'Beautiful. Fragile.', wood: '#8d6e63', l: '#f48fb1', r: '#f06292', reqLevel: 0 },
+        'oak': { name: '🌳 Golden Oak', desc: 'Resists Drought well.', wood: '#5d4037', l: '#ffca28', r: '#ffb300', reqLevel: 1 },
+        'willow': { name: '🌿 Weeping Willow', desc: 'Loves water. Survives Floods.', wood: '#4e342e', l: '#8bc34a', r: '#689f38', reqLevel: 2 }
+    };
+
+    let state = { hp: 100, seasonIdx: 0, year: 1, generation: 1, type: '', stage: 0, event: null, shield: false, seeds: 0, interval: null, eventInterval: null, seasonInterval: null, bigfootTimer: null };
+    const seasons = ["Spring", "Summer", "Autumn", "Winter"];
+    
+    document.getElementById('main-level').innerText = `Player Level: ${meta.level}`;
+
+    // --- MENUS ---
+    function openBook() {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('book-screen').classList.remove('hidden');
+        document.getElementById('book-level').innerText = `Player Level: ${meta.level}`;
+        
+        let html = '';
+        for(let id in treeDB) {
+            const t = treeDB[id];
+            if(meta.level >= t.reqLevel) {
+                html += `<div class="tree-entry unlocked"><div class="tree-info"><h3>${t.name}</h3><p>${t.desc}</p></div><span style="font-size:24px;">✅</span></div>`;
+            } else {
+                html += `<div class="tree-entry"><div class="tree-info"><h3>??? Locked</h3><p>Unlocks at Player Level ${t.reqLevel}</p></div><span style="font-size:24px;">🔒</span></div>`;
+            }
+        }
+        document.getElementById('book-list').innerHTML = html;
+    }
+    
+    function closeBook() {
+        document.getElementById('book-screen').classList.add('hidden');
+        document.getElementById('start-screen').classList.remove('hidden');
+    }
+
+    function showChoice(mode) { 
+        document.getElementById('start-screen').classList.add('hidden'); 
+        
+        if(mode === 'start') {
+            document.getElementById('choice-title').innerText = "Plant First Seed";
+            document.getElementById('choice-desc').innerText = "Starting a new forest...";
+            document.getElementById('cancel-choice-btn').style.display = 'block';
+        } else if (mode === 'legacy') {
+            document.getElementById('choice-title').innerText = "Pass the Torch";
+            document.getElementById('choice-desc').innerText = "Spend 1 Seed to plant the next generation!";
+            document.getElementById('cancel-choice-btn').style.display = 'none';
+        }
+
+        let html = '';
+        for(let id in treeDB) {
+            const t = treeDB[id];
+            if(meta.level >= t.reqLevel) {
+                html += `<div class="tree-entry unlocked" onclick="initGame('${id}')">
+                            <div class="tree-info"><h3>${t.name}</h3><p>${t.desc}</p></div>
+                         </div>`;
+            }
+        }
+        document.getElementById('choice-list').innerHTML = html;
+        document.getElementById('choice-screen').classList.remove('hidden'); 
+    }
+    
+    function cancelChoice() {
+        document.getElementById('choice-screen').classList.add('hidden'); 
+        document.getElementById('start-screen').classList.remove('hidden'); 
+    }
+
+    // --- GAMEPLAY ---
+    function initGame(t) {
+        document.getElementById('choice-screen').classList.add('hidden');
+        
+        if(state.generation > 1) {
+            // Continuing a dynasty
+            state.seeds -= 1; 
+        }
+
+        state.type = t;
+        state.hp = 100;
+        state.year = 1;
+        state.seasonIdx = 0;
+        state.stage = 0;
+        state.event = null;
+        state.shield = false;
+        
+        const tw = document.getElementById('tree-world');
+        tw.style.setProperty('--t-wood', treeDB[t].wood);
+        tw.style.setProperty('--t-l', treeDB[t].l);
+        tw.style.setProperty('--t-r', treeDB[t].r);
+        tw.className = `stage-0 season-Spring`;
+        
+        document.getElementById('weather-tint').className = 'bg-spring';
+        document.getElementById('blossom-btn').style.display = 'none';
+        
+        updateUI();
+
+        clearInterval(state.interval); clearInterval(state.seasonInterval); clearInterval(state.eventInterval);
+        clearTimeout(state.bigfootTimer);
+        
+        state.interval = setInterval(gameLoop, 1000);     
+        state.seasonInterval = setInterval(seasonTick, 15000); 
+        
+        // --- DIFFICULTY SCALING ---
+        let eventTiming = Math.max(2000, 7000 - ((state.generation - 1) * 1000));
+        state.eventInterval = setInterval(randomEvent, eventTiming); 
+    }
+
+    function gameLoop() {
+        if(state.hp <= 0) return;
+        
+        let drainMod = 1.0;
+        if(state.type === 'cherry' && state.event === 'Drought') drainMod = 2.0;
+        if(state.type === 'oak' && state.event === 'Drought') drainMod = 0.5;
+        if(state.type === 'willow' && state.event === 'Flood') drainMod = 0.2;
+
+        if(state.event === 'Drought') state.hp -= (2 * drainMod);
+        if(state.event === 'Flood') state.hp -= (2 * drainMod);
+        if(state.event === 'Pests') state.hp -= 1.5;
+        
+        if(!state.event && state.hp < 100 && seasons[state.seasonIdx] !== "Winter") state.hp += 0.5;
+        
+        if(state.hp <= 0) gameOver("The elements were too harsh.");
+        updateUI();
+    }
+
+    function seasonTick() {
+        if(state.hp <= 0) return;
+        state.seasonIdx = (state.seasonIdx + 1) % 4;
+        
+        if (state.seasonIdx === 0) { 
+            state.year++; 
+            state.stage = Math.min(3, state.year - 1); 
+            
+            // OLD AGE LOGIC
+            if(state.year >= 6) {
+                clearInterval(state.interval); clearInterval(state.seasonInterval); clearInterval(state.eventInterval);
+                clearTimeout(state.bigfootTimer); 
+                document.getElementById('event-alert').style.display = 'none';
+                document.getElementById('blossom-btn').style.display = 'none';
+                
+                if(state.seeds >= 1) {
+                    // Success! Level up and continue dynasty
+                    meta.level++;
+                    state.generation++;
+                    if(state.generation > meta.bestGen) meta.bestGen = state.generation;
+                    saveMeta();
+                    showChoice('legacy'); 
+                } else {
+                    // Failed to reproduce
+                    gameOver("Died of old age, but left no seeds to continue the forest.");
+                }
+                return;
+            }
+        }
+        
+        document.getElementById('weather-tint').className = 'bg-' + seasons[state.seasonIdx].toLowerCase();
+        document.getElementById('tree-world').className = `stage-${state.stage} season-${seasons[state.seasonIdx]}`;
+        
+        document.getElementById('blossom-btn').style.display = (seasons[state.seasonIdx] === "Spring" && state.stage > 0) ? 'block' : 'none';
+        updateUI();
+    }
+
+    function randomEvent() {
+        if(state.event || state.hp <= 0) return;
+        
+        // Base events
+        let evs = [
+            {id: 'Drought', i: '☀️', n: 'DROUGHT!'}, 
+            {id: 'Flood', i: '🌊', n: 'FLOOD!'}, 
+            {id: 'Pests', i: '🐛', n: 'PESTS!'}
+        ];
+        
+        // Bigfoot only attacks during Year 1
+        if (state.year === 1) {
+            evs.push({id: 'Bigfoot', i: '🦶', n: 'BIGFOOT!'});
+        }
+
+        const p = evs[Math.floor(Math.random() * evs.length)];
+        state.event = p.id;
+        
+        document.getElementById('event-img').innerText = p.i;
+        document.getElementById('event-name').innerText = p.n;
+        document.getElementById('event-alert').style.display = 'block';
+        
+        if(p.id === 'Bigfoot') {
+            state.bigfootTimer = setTimeout(() => { 
+                if(!state.shield) state.hp -= 40;
+                state.event = null; state.shield = false; 
+                document.getElementById('event-alert').style.display = 'none'; 
+                if(state.hp <= 0) gameOver("Stomped by Bigfoot.");
+                updateUI();
+            }, 3500);
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('hp-fill').style.width = Math.max(0, state.hp) + '%';
+        document.getElementById('hp-text').innerText = Math.floor(Math.max(0, state.hp));
+        document.getElementById('run-seeds').innerText = state.seeds;
+        document.getElementById('gen-text').innerText = state.generation;
+        document.getElementById('info-tag').innerText = `Year ${state.year} - ${seasons[state.seasonIdx]}`;
+        document.getElementById('shield-btn').style.background = state.shield ? '#bbdefb' : 'white';
+    }
+
+    function useShield() { state.shield = !state.shield; updateUI(); }
+    function toggleComms(s) { document.getElementById('comms-box').style.display = s ? 'block' : 'none'; }
+    function fix(t) { if(state.event === t) { state.event = null; document.getElementById('event-alert').style.display = 'none'; } toggleComms(false); }
+    function dropBranches() { if(state.event === 'Drought') { state.event = null; document.getElementById('event-alert').style.display = 'none'; } else { state.hp -= 10; } updateUI(); }
+    function collectSeed() { state.seeds++; document.getElementById('blossom-btn').style.display = 'none'; updateUI(); }
+    
+    function gameOver(reason) {
+        clearInterval(state.interval); clearInterval(state.seasonInterval); clearInterval(state.eventInterval);
+        clearTimeout(state.bigfootTimer); 
+        state.hp = 0; 
+        document.getElementById('event-alert').style.display = 'none';
+        document.getElementById('blossom-btn').style.display = 'none'; // Zombie blossom fix
+        document.getElementById('end-screen').classList.remove('hidden');
+        document.getElementById('end-stats').innerHTML = `Dynasty Reached: Gen ${state.generation}<br><br><span style="color:#777; font-size:14px;">Cause: ${reason}</span>`;
+    }
+</script>
+</body>
+</html>
